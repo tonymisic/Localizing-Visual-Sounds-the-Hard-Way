@@ -30,7 +30,6 @@ class AVENet(nn.Module):
         self.tau = 0.03
         self.trimap = args.tri_map
         self.Neg = args.Neg
-        self.random_threshold = args.random_threshold
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):

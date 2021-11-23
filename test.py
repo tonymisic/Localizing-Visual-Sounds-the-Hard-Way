@@ -1,4 +1,5 @@
 import os
+from PIL import Image
 import torch
 from torch.optim import *
 import torchvision
@@ -20,7 +21,7 @@ from PIL import Image
 
 def get_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--testset',default='vggss',type=str,help='testset,(flickr or vggss)') 
+    parser.add_argument('--testset',default='flickr',type=str,help='testset,(flickr or vggss)') 
     parser.add_argument('--data_path', default='',type=str,help='Root directory path of data')
     parser.add_argument('--image_size',default=224,type=int,help='Height and width of inputs')
     parser.add_argument('--gt_path',default='',type=str)
@@ -55,7 +56,7 @@ def main():
 
     # dataloader
     testdataset = GetAudioVideoDataset(args,  mode='test')
-    testdataloader = DataLoader(testdataset, batch_size=args.batch_size, shuffle=False,num_workers = 16)
+    testdataloader = DataLoader(testdataset, batch_size=args.batch_size, shuffle=False, num_workers=1)
     print("Loaded dataloader.")
 
     # gt for vggss
@@ -65,7 +66,6 @@ def main():
             annotations = json.load(json_file)
         for annotation in annotations:
             args.gt_all[annotation['file']] = annotation['bbox']
-
 
     model.eval()
     iou = []
@@ -79,10 +79,16 @@ def main():
         for i in range(spec.shape[0]):
             heatmap_now = cv2.resize(heatmap_arr[i,0], dsize=(224, 224), interpolation=cv2.INTER_LINEAR)
             heatmap_now = normalize_img(-heatmap_now)
-            gt_map = testset_gt(args,name[i])
+            image_now = normalize_img(image)
+            # im = Image.fromarray(image_now[0][0].cpu().numpy() * 256).convert('RGB') 
+            # colored_map = cv2.applyColorMap(np.uint8(heatmap_now * 256), cv2.COLORMAP_JET)
+            # im2 = Image.fromarray(np.uint8(np.add((image_now[0].cpu().numpy() * 256).transpose((1,2,0)) * 0.5, colored_map * 0.5))).convert('RGB') 
+            # im.save("tmp/original.jpg")
+            # im2.save("tmp/heatmap.jpg")
+            gt_map = testset_gt(args, name[i])
             pred = 1 - heatmap_now
             threshold = np.sort(pred.flatten())[int(pred.shape[0] * pred.shape[1] / 2)]
-            pred[pred>threshold]  = 1
+            pred[pred>threshold] = 1
             pred[pred<1] = 0
             evaluator = Evaluator()
             ciou,inter,union = evaluator.cal_CIOU(pred,gt_map,0.5)
@@ -98,7 +104,5 @@ def main():
     print('cIoU' , np.sum(np.array(iou) >= 0.5)/len(iou))
     print('auc',auc_)
 
-
 if __name__ == "__main__":
     main()
-

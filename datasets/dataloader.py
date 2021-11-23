@@ -98,7 +98,7 @@ class GetAudioVideoDataset(Dataset):
 
         resamples[resamples > 1.] = 1.
         resamples[resamples < -1.] = -1.
-        frequencies, times, spectrogram = signal.spectrogram(resamples,samplerate, nperseg=512,noverlap=274)
+        frequencies, times, spectrogram = signal.spectrogram(resamples,samplerate, nperseg=512, noverlap=1)
         spectrogram = np.log(spectrogram+ 1e-7)
         spectrogram = self.aid_transform(spectrogram)
  
