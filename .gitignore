@@ -1,0 +1,8 @@
+.vscode/
+__pycache__/
+datasets/FLICKR/
+datasets/VGGSS/
+datasets/Dataset.tar.gz
+pretrained/
+
+*__pycache__/*
