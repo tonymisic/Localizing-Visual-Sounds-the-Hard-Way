@@ -3,6 +3,8 @@ __pycache__/
 datasets/FLICKR/
 datasets/VGGSS/
 datasets/Dataset.tar.gz
+metadata/urls_public.txt
 pretrained/
-
+imgs/
+videos/
 *__pycache__/*

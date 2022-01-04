@@ -4,11 +4,8 @@ import torch.nn.functional as F
 from models import audio_convnet
 from models import image_convnet
 from models import base_models
-import pdb
-import random
 
 def normalize_img(value, vmax=None, vmin=None):
-    #  pdb.set_trace()
     value1 = value.view(value.size(0), -1)
     value1 -= value1.min(1, keepdim=True)[0]
     value1 /= value1.max(1, keepdim=True)[0]

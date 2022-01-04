@@ -1,4 +1,4 @@
-python test.py \
+python test_off_labels.py \
 --testset "flickr" \
 --data_path "/media/datadrive/flickr/FLICKR_5k/" \
 --gt_path "/media/datadrive/flickr/FLICKR_5k/Annotations/" \

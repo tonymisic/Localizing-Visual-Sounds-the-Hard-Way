@@ -84,13 +84,24 @@ def main():
 
     model.eval()
     iou = []
-    for step, (image, spec, audio,name,im) in enumerate(testdataloader):
-        print('%d / %d' % (step,len(testdataloader) - 1))
+    first_image, previous_spec = None, None, None
+    final_img, final_spec = None, None
+    for step, (image, spec, audio, name, im) in enumerate(testdataloader):
         spec = Variable(spec).cuda()
         image = Variable(image).cuda()
-        heatmap,_,Pos,Neg = model(image.float(),spec.float(),args)
+        if step == 0:
+            first_image = image
+            previous_spec = spec
+            continue
+        elif step == len(testdataloader) - 1:
+            final_img, final_spec = first_image, previous_spec
+            previous_spec = spec
+        else:
+            final_img, final_spec = image, previous_spec
+            previous_spec = spec
+        print('%d / %d' % (step,len(testdataloader) - 1))
+        heatmap,_,Pos,Neg = model(final_img.float(), final_spec.float(),args)
         heatmap_arr =  heatmap.data.cpu().numpy()
-        gaussian = gkern(14, std=5)
         all_ones = np.ones([14,14])
         write_heatmaps, write_preds = False, False
         for i in range(spec.shape[0]):
@@ -99,19 +110,7 @@ def main():
             image_now = normalize_img(image)
             all_ones_now = cv2.resize(all_ones, dsize=(224, 224), interpolation=cv2.INTER_LINEAR)
             all_ones_now = normalize_img(all_ones_now)
-            # Activation mapping layer4 resnet.
-            current_activation = torch.mean(activation['layer4'], 1).cpu().numpy()
-            activation_now = cv2.resize(current_activation[i], dsize=(224, 224), interpolation=cv2.INTER_LINEAR)
-            activation_now = normalize_img(activation_now)
-            gaussian_now = cv2.resize(gaussian, dsize=(224, 224), interpolation=cv2.INTER_LINEAR)
-            gaussian_now = normalize_img(-gaussian_now)
             if write_heatmaps:
-                colored_act_map = cv2.applyColorMap(np.uint8(activation_now * 255), cv2.COLORMAP_JET)
-                visualization = Image.fromarray(np.uint8(np.add((image_now[0].cpu().numpy() * 255).transpose((1,2,0)) * 0.5, colored_act_map * 0.5))).convert('RGB')
-                visualization.save('tmp/activation.jpg')
-                gaussian_now_map = cv2.applyColorMap(np.uint8(gaussian_now * 255), cv2.COLORMAP_JET)
-                visualization = Image.fromarray(np.uint8(np.add((image_now[0].cpu().numpy() * 255).transpose((1,2,0)) * 0.5, gaussian_now_map * 0.5))).convert('RGB')
-                visualization.save('tmp/gaussian.jpg')
                 # original heatmap activations
                 im = Image.fromarray(image_now[0][0].cpu().numpy() * 255).convert('RGB')
                 colored_map = cv2.applyColorMap(np.uint8(heatmap_now * 255), cv2.COLORMAP_JET)
@@ -122,44 +121,19 @@ def main():
             gt_map = testset_gt(args, name[i])
             #gt_map = cv2.resize(gt_map[int(gt_map.shape[0] / 4):int(gt_map.shape[0] / 4) + 150, 0:150], 
             #    dsize=(224, 224), interpolation=cv2.INTER_LINEAR)
-            pred = 1 - activation_now # CHANGE WHEN COMPARING QUANTITATIVE
+            pred = 1 - heatmap_now # CHANGE WHEN COMPARING QUANTITATIVE
             threshold = np.sort(pred.flatten())[int(pred.shape[0] * pred.shape[1] / 2)]
             pred[pred>threshold] = 1
             pred[pred<1] = 0
             evaluator = Evaluator()
             ciou,_,_ = evaluator.cal_CIOU(pred,gt_map,0.5)
-            pred_same = activation_now # CHANGE WHEN COMPARING QUANTITATIVE
-            threshold = np.sort(pred_same.flatten())[int(pred_same.shape[0] * pred_same.shape[1] / 2)]
-            pred_same[pred_same>threshold] = 1
-            pred_same[pred_same<1] = 0
-            evaluator = Evaluator()
-            ciou_same,_,_ = evaluator.cal_CIOU(pred_same,gt_map,0.5)
-            if ciou_same > ciou:
-                iou.append(ciou_same)
-            else:
-                iou.append(ciou)
-            pred2 = 1 - activation_now
-            threshold = np.sort(pred2.flatten())[int(pred2.shape[0] * pred2.shape[1] / 2)]
-            pred2[pred2>threshold] = 1
-            pred2[pred2<1] = 0
-            ciou2,_,_ = evaluator.cal_CIOU(pred2,gt_map,0.5)
-            pred3 = 1 - gaussian_now
-            threshold = np.sort(pred3.flatten())[int(pred3.shape[0] * pred3.shape[1] / 2)]
-            pred3[pred3>threshold] = 1
-            pred3[pred3<1] = 0
-            ciou3,_,_ = evaluator.cal_CIOU(pred3,gt_map,0.5)
+            iou.append(ciou)
             if write_preds:
                 print("Heatmap cIoU: " + str(ciou))
-                print("Activation cIoU: " + str(ciou2))
-                print("Gaussian cIoU: " + str(ciou3))
                 temp = cv2.applyColorMap(np.uint8(gt_map * 255), cv2.COLORMAP_JET)
                 Image.fromarray(np.uint8(np.add((image_now[0].cpu().numpy() * 255).transpose((1,2,0)) * 0.5, temp * 0.5))).convert('RGB').save("tmp/gt.jpg")
                 temp2 = cv2.applyColorMap(np.uint8(pred * 255), cv2.COLORMAP_JET)
                 Image.fromarray(np.uint8(np.add((image_now[0].cpu().numpy() * 255).transpose((1,2,0)) * 0.5, temp2 * 0.5))).convert('RGB').save("tmp/pred_heatmap.jpg")
-                temp3 = cv2.applyColorMap(np.uint8(pred2 * 255), cv2.COLORMAP_JET)
-                Image.fromarray(np.uint8(np.add((image_now[0].cpu().numpy() * 255).transpose((1,2,0)) * 0.5, temp3 * 0.5))).convert('RGB').save("tmp/pred_activation.jpg")
-                temp4 = cv2.applyColorMap(np.uint8(pred3 * 255), cv2.COLORMAP_JET)
-                Image.fromarray(np.uint8(np.add((image_now[0].cpu().numpy() * 255).transpose((1,2,0)) * 0.5, temp4 * 0.5))).convert('RGB').save("tmp/pred_gaussian.jpg")
             print("Done batch!")
     results = []
     for i in range(21):
