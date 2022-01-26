@@ -119,8 +119,6 @@ def main():
                 im2.save("tmp/heatmap.jpg")
             # end of visualization
             gt_map = testset_gt(args, name[i])
-            #gt_map = cv2.resize(gt_map[int(gt_map.shape[0] / 4):int(gt_map.shape[0] / 4) + 150, 0:150], 
-            #    dsize=(224, 224), interpolation=cv2.INTER_LINEAR)
             pred = 1 - heatmap_now # CHANGE WHEN COMPARING QUANTITATIVE
             threshold = np.sort(pred.flatten())[int(pred.shape[0] * pred.shape[1] / 2)]
             pred[pred>threshold] = 1

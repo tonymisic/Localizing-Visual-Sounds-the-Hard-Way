@@ -73,6 +73,41 @@ def testset_gt(args,name):
             gt_map += temp
         gt_map /= 2
         gt_map[gt_map>1] = 1
+
+    elif args.testset == 'vggss':
+        gt = args.gt_all[name[:-4]]
+        gt_map = np.zeros([224,224])
+        for item_ in gt:
+            item_ =  list(map(lambda x: int(224* max(x,0)), item_) )
+            temp = np.zeros([224,224])
+            (xmin,ymin,xmax,ymax) = item_[0],item_[1],item_[2],item_[3]
+            temp[ymin:ymax,xmin:xmax] = 1
+            gt_map += temp
+        gt_map[gt_map>0] = 1
+    return gt_map
+
+def testset_gt_frame(args,name,frame):
+
+    if args.testset == 'flickr':
+        gt = ET.parse(args.gt_path + '%s_%s.xml' % (name[:-4], str(frame))).getroot()
+        gt_map = np.zeros([224,224])
+        bboxs = []
+        for child in gt: 
+            for childs in child:
+                bbox = []
+                if childs.tag == 'bbox':
+                    for index,ch in enumerate(childs):
+                        if index == 0:
+                            continue
+                        bbox.append(int(224 * int(ch.text)/256))
+                bboxs.append(bbox)
+        for item_ in bboxs:
+            temp = np.zeros([224,224])
+            (xmin,ymin,xmax,ymax) = item_[0],item_[1],item_[2],item_[3]
+            temp[item_[1]:item_[3],item_[0]:item_[2]] = 1
+            gt_map += temp
+        #gt_map /= 2
+        #gt_map[gt_map>1] = 1
         
     elif args.testset == 'vggss':
         gt = args.gt_all[name[:-4]]

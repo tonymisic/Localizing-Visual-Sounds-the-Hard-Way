@@ -83,9 +83,7 @@ def main():
             args.gt_all[annotation['file']] = annotation['bbox']
 
     model.eval()
-    for step, (image, frames, spec, audio,name,im) in enumerate(testdataloader):
-        #if step <= 0:
-        #    continue
+    for step, (image, frames, spec, audio, samplerate, name, im) in enumerate(testdataloader):
         frames = frames.swapaxes(1,2).swapaxes(0,1)
         if True: # get reference images
             heatmap,_,Pos,Neg = model(image.float(),spec.float(),args)
