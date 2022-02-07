@@ -42,44 +42,43 @@ def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = nn.DataParallel(model)
     model = model.cuda()
-    checkpoint = torch.load(args.summaries_dir)
-    model_dict = model.state_dict()
-    pretrained_dict = checkpoint['model_state_dict']
-    model_dict.update(pretrained_dict)
-    model.load_state_dict(model_dict)
+    #checkpoint = torch.load(args.summaries_dir)
+    #model_dict = model.state_dict()
+    #pretrained_dict = checkpoint['model_state_dict']
+    #model_dict.update(pretrained_dict)
+    #model.load_state_dict(model_dict)
     model.to(device)
-    print('load pretrained model.')
+    #print('load pretrained model.')
     # dataloader
-    testdataset = PerFrameLabels(args,  mode='test')
+    testdataset = PerFrameLabels(args, mode='test')
     testdataloader = DataLoader(testdataset, batch_size=args.batch_size, shuffle=False, num_workers=1)
-    testdataloader2 = DataLoader(testdataset, batch_size=args.batch_size, shuffle=True, num_workers=1)
     print("Loaded dataloader.")
     # testing
     ious, aucs = [], []
     model.eval()
-    for step, (image, frames, spec2, audio2, samplerate2, name, im) in enumerate(testdataloader):
+    for step, (image, frames, spec, audio, samplerate, name, im) in enumerate(testdataloader):
         iou = []
-        for step_two, (image_two, frames_two, spec, audio, samplerate, name_two, im_two) in enumerate(testdataloader2, step):
-            torchaudio.save('ExampleVideos/audio/' + name[0].strip('.mp4') + '.wav', audio.to(torch.float32), samplerate)
-            frames = frames.swapaxes(1,2).swapaxes(0,1)
-            print('%d / %d' % (step,len(testdataloader) - 1))
-            #subprocess.call("mkdir imgs/" + name[0].strip('.mp4'), cwd=os.getcwd(), shell=True)
-            #subprocess.call("mkdir imgs/" + name[0].strip('.mp4') + "_gts", cwd=os.getcwd(), shell=True)
-            for i, current_frame in enumerate(frames):
-                spec = Variable(spec).cuda()
-                current_frame = Variable(current_frame).cuda()
-                heatmap,_,Pos,Neg = model(current_frame.float(),spec.float(),args)
-                heatmap_arr = heatmap.data.cpu().numpy()
-                for j in range(spec.shape[0]):
-                    heatmap_now = cv2.resize(heatmap_arr[j,0], dsize=(224, 224), interpolation=cv2.INTER_LINEAR)
-                    heatmap_now = normalize_img(-heatmap_now)
-                    image_now = normalize_img(current_frame)
-                    pred = 1 - heatmap_now
-                    threshold = np.sort(pred.flatten())[int(pred.shape[0] * pred.shape[1] / 2)]
-                    pred[pred>threshold] = 1
-                    pred[pred<1] = 0
-                    #temp = cv2.applyColorMap(np.uint8(pred * 255), cv2.COLORMAP_JET)
-                    #Image.fromarray(np.uint8(np.add((image_now[0].cpu().numpy() * 255).transpose((1,2,0)) * 0.5, temp * 0.5))).convert('RGB').save("imgs/" + name[0].strip('.mp4') + "/pred_heatmap" + str(i) + ".jpg")
+        #torchaudio.save('ExampleVideos/audio/' + name[0].strip('.mp4') + '.wav', audio.to(torch.float32), samplerate)
+        frames = frames.swapaxes(1,2).swapaxes(0,1)
+        print('%d / %d' % (step,len(testdataloader) - 1))
+        subprocess.call("mkdir imgs/" + name[0].strip('.mp4'), cwd=os.getcwd(), shell=True)
+        subprocess.call("mkdir imgs/" + name[0].strip('.mp4') + "_gts", cwd=os.getcwd(), shell=True)
+        for i, current_frame in enumerate(frames):
+            spec = Variable(spec).cuda()
+            current_frame = Variable(current_frame).cuda()
+            heatmap,_,Pos,Neg = model(current_frame.float(),spec.float(),args)
+            heatmap_arr = heatmap.data.cpu().numpy()
+            for j in range(spec.shape[0]):
+                heatmap_now = cv2.resize(heatmap_arr[j,0], dsize=(224, 224), interpolation=cv2.INTER_LINEAR)
+                heatmap_now = normalize_img(-heatmap_now)
+                image_now = normalize_img(current_frame)
+                pred = 1 - heatmap_now
+                threshold = np.sort(pred.flatten())[int(pred.shape[0] * pred.shape[1] / 2)]
+                pred[pred>threshold] = 1
+                pred[pred<1] = 0
+                temp = cv2.applyColorMap(np.uint8(pred * 255), cv2.COLORMAP_JET)
+                Image.fromarray(np.uint8(np.add((image_now[0].cpu().numpy() * 255).transpose((1,2,0)) * 0.5, temp * 0.5))).convert('RGB').save("imgs/" + name[0].strip('.mp4') + "/pred_heatmap" + str(i) + ".jpg")
+                if False:
                     if (i % 20 == 0 and i != 0): # labeled frames to calculate cIoU
                         gt_map = testset_gt_frame(args, name[0], i)
                         #temp = cv2.applyColorMap(np.uint8(gt_map * 255), cv2.COLORMAP_JET)
@@ -87,23 +86,22 @@ def main():
                         evaluator = Evaluator()
                         ciou,_,_ = evaluator.cal_CIOU(pred,gt_map,0.5)
                         iou.append(ciou)
-            #convert_jpg_to_mp4.main()
-            #subprocess.call(str("rm -rf imgs/" + name[0].strip('.mp4') + "/*"), cwd=os.getcwd(), shell=True)
-            break
+        convert_jpg_to_mp4.main()
+        break
         # results
         results = []
-        for i in range(21):
-            result = np.sum(np.array(iou) >= 0.05 * i)
-            result = result / len(iou)
-            results.append(result)
-        x = [0.05 * i for i in range(21)]
-        auc_ = auc(x, results)
-        print('cIoU' , np.sum(np.array(iou) >= 0.5) / len(iou))
-        print('auc',auc_)
-        ious.append(np.sum(np.array(iou) >= 0.5) / len(iou))
-        aucs.append(auc_)
-    print("Average cIoU ", np.sum(ious) / len(ious))
-    print("Average auc ", np.sum(aucs) / len(aucs))
+    #     for i in range(21):
+    #         result = np.sum(np.array(iou) >= 0.05 * i)
+    #         result = result / len(iou)
+    #         results.append(result)
+    #     x = [0.05 * i for i in range(21)]
+    #     auc_ = auc(x, results)
+    #     print('cIoU' , np.sum(np.array(iou) >= 0.5) / len(iou))
+    #     print('auc',auc_)
+    #     ious.append(np.sum(np.array(iou) >= 0.5) / len(iou))
+    #     aucs.append(auc_)
+    # print("Average cIoU ", np.sum(ious) / len(ious))
+    # print("Average auc ", np.sum(aucs) / len(aucs))
 
 if __name__ == "__main__":
     main()

@@ -23,8 +23,8 @@ class PerFrameLabels(Dataset):
     def __init__(self, args, mode='train', transforms=None):
         data = []
         if args.testset == 'flickr':
-            testcsv = 'metadata/flickr_quantitative_examples.csv'
-            #testcsv = 'metadata/flickr_test.csv'
+            #testcsv = 'metadata/flickr_quantitative_examples.csv'
+            testcsv = 'metadata/flickr_test.csv'
         elif args.testset == 'vggss':
             testcsv = 'metadata/vggss_test.csv'
 
@@ -33,7 +33,7 @@ class PerFrameLabels(Dataset):
             for item in csv_reader:
                 data.append(item[0] + '.mp4')
         self.audio_path = '/media/datadrive/flickr/FLICKR_5k/audio/'
-        #self.frame_path = args.data_path + 'frames/'
+        self.frame_path = args.data_path + 'frames/'
         self.video_path = args.data_path + 'videos/'
 
         self.imgSize = args.image_size 

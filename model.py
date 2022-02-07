@@ -17,7 +17,7 @@ class AVENet(nn.Module):
         super(AVENet, self).__init__()
 
         # -----------------------------------------------
-        self.imgnet = base_models.resnet18(modal='vision', pretrained=True)
+        self.imgnet = base_models.resnet18(modal='vision', pretrained=False)
         self.audnet = base_models.resnet18(modal='audio')
         self.m = nn.Sigmoid()
         self.avgpool = nn.AdaptiveMaxPool2d((1, 1))
